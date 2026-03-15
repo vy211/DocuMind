@@ -1,0 +1,8 @@
+fastapi
+uvicorn
+chromadb
+requests
+pypdf
+redis
+psycopg2-binary
+python-dotenv
