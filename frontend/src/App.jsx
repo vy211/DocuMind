@@ -55,19 +55,29 @@ function App() {
       
       setIsTyping(false); // Typing indicator off once stream starts
       
+      let assistantResponse = "";
+
       while (true) {
         const { value, done } = await reader.read();
         if (done) break;
         
         const chunk = decoder.decode(value, { stream: true });
         
-        setMessages((prev) => 
-          prev.map(msg => 
-            msg.id === assistantMsgId 
-              ? { ...msg, content: msg.content + chunk } 
-              : msg
-          )
-        );
+        // Stream is so fast it arrives in chunks. Smooth it out character by character.
+        for (let i = 0; i < chunk.length; i++) {
+          assistantResponse += chunk[i];
+          
+          setMessages((prev) => 
+            prev.map(msg => 
+              msg.id === assistantMsgId 
+                ? { ...msg, content: assistantResponse } 
+                : msg
+            )
+          );
+          
+          // 15ms delay per character creates a realistic ChatGPT typing effect
+          await new Promise(resolve => setTimeout(resolve, 15)); 
+        }
       }
     } catch (error) {
       console.error("Error asking question:", error);
