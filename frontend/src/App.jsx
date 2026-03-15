@@ -19,27 +19,67 @@ function App() {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, isTyping]);
 
-  const handleSendMessage = (e) => {
+  const handleSendMessage = async (e) => {
     e.preventDefault();
     if (!inputMessage.trim()) return;
 
-    const newMsg = { id: Date.now(), role: "user", content: inputMessage };
+    const userMessage = inputMessage;
+    const newMsg = { id: Date.now(), role: "user", content: userMessage };
+    
     setMessages((prev) => [...prev, newMsg]);
     setInputMessage("");
     setIsTyping(true);
 
-    // Simulate API delay for asking a question
-    setTimeout(() => {
-      setMessages((prev) => [
-        ...prev,
-        {
-          id: Date.now(),
-          role: "assistant",
-          content: "This is a placeholder response from DocuMind. We haven't connected the backend API yet."
-        }
-      ]);
+    // Create a placeholder block for the assistant that we will append to
+    const assistantMsgId = Date.now() + 1;
+    setMessages((prev) => [
+      ...prev,
+      {
+        id: assistantMsgId,
+        role: "assistant",
+        content: ""
+      }
+    ]);
+
+    try {
+      const response = await fetch("http://localhost:8000/ask", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ question: userMessage })
+      });
+
+      if (!response.body) throw new Error("No response body");
+
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder("utf-8");
+      
+      setIsTyping(false); // Typing indicator off once stream starts
+      
+      while (true) {
+        const { value, done } = await reader.read();
+        if (done) break;
+        
+        const chunk = decoder.decode(value, { stream: true });
+        
+        setMessages((prev) => 
+          prev.map(msg => 
+            msg.id === assistantMsgId 
+              ? { ...msg, content: msg.content + chunk } 
+              : msg
+          )
+        );
+      }
+    } catch (error) {
+      console.error("Error asking question:", error);
+      setMessages((prev) => 
+        prev.map(msg => 
+          msg.id === assistantMsgId 
+            ? { ...msg, content: "Sorry, I had trouble connecting to the backend. Is it running?" } 
+            : msg
+        )
+      );
       setIsTyping(false);
-    }, 1500);
+    }
   };
 
   const handleFileUpload = (e) => {
