@@ -10,15 +10,18 @@ def get_db_connection():
         database=os.getenv("POSTGRES_DB", "devdb"),
         user=os.getenv("POSTGRES_USER", "admin"),
         password=os.getenv("POSTGRES_PASSWORD", "admin123"),
-        port=os.getenv("POSTGRES_PORT", "5432")
+        port=os.getenv("POSTGRES_PORT", "5432"),
+        options='-c search_path="docuMind_DB",public'
     )
 
 def init_db():
     conn = get_db_connection()
     cur = conn.cursor()
+    # Create schema first
+    cur.execute('CREATE SCHEMA IF NOT EXISTS "docuMind_DB";')
     # Create tables here if needed
     cur.execute("""
-        CREATE TABLE IF NOT EXISTS chat_history (
+        CREATE TABLE IF NOT EXISTS "docuMind_DB".chat_history (
             id SERIAL PRIMARY KEY,
             question TEXT NOT NULL,
             answer TEXT NOT NULL,
