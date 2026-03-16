@@ -6,3 +6,5 @@ pypdf
 redis
 psycopg2-binary
 python-dotenv
+httpx
+python-multipart
