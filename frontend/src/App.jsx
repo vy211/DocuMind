@@ -92,21 +92,59 @@ function App() {
     }
   };
 
-  const handleFileUpload = (e) => {
+  const handleFileUpload = async (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
+    if (!file.name.endsWith(".pdf")) {
+      setMessages((prev) => [
+        ...prev,
+        { id: Date.now(), role: "assistant", content: "⚠️ Only PDF files are supported. Please upload a .pdf file." }
+      ]);
+      return;
+    }
+
     setIsUploading(true);
     
-    // Simulate upload delay
-    setTimeout(() => {
-      setDocuments((prev) => [...prev, { name: file.name, size: (file.size / 1024 / 1024).toFixed(2) }]);
-      setIsUploading(false);
+    const formData = new FormData();
+    formData.append("file", file);
+
+    try {
+      const response = await fetch("http://localhost:8000/upload", {
+        method: "POST",
+        body: formData,
+      });
+      
+      const result = await response.json();
+      
+      if (!response.ok) {
+        throw new Error(result.detail || "Upload failed");
+      }
+
+      setDocuments((prev) => [...prev, { 
+        name: file.name, 
+        size: (file.size / 1024 / 1024).toFixed(2),
+        chunks: result.chunk_count
+      }]);
+      
       setMessages((prev) => [
         ...prev, 
-        { id: Date.now(), role: "assistant", content: `I've successfully processed "${file.name}". What would you like to know about it?` }
+        { 
+          id: Date.now(), 
+          role: "assistant", 
+          content: `✅ Successfully processed **"${file.name}"** into ${result.chunk_count} chunks and stored in the knowledge base. You can now ask questions about this document!`
+        }
       ]);
-    }, 2000);
+    } catch (error) {
+      setMessages((prev) => [
+        ...prev,
+        { id: Date.now(), role: "assistant", content: `❌ Failed to upload "${file.name}": ${error.message}` }
+      ]);
+    } finally {
+      setIsUploading(false);
+      // Reset file input so the same file can be re-uploaded
+      e.target.value = "";
+    }
   };
 
   return (
@@ -144,10 +182,10 @@ function App() {
               <div className="space-y-2">
                 {documents.map((doc, i) => (
                   <div key={i} className="flex items-center gap-3 p-3 bg-neutral-900 rounded-lg border border-neutral-800 group hover:border-neutral-700 cursor-pointer">
-                    <FileText className="w-5 h-5 text-indigo-400" />
+                    <FileText className="w-5 h-5 text-indigo-400 shrink-0" />
                     <div className="flex-1 min-w-0">
                       <p className="text-sm text-neutral-200 truncate">{doc.name}</p>
-                      <p className="text-xs text-neutral-500">{doc.size} MB</p>
+                      <p className="text-xs text-neutral-500">{doc.size} MB · {doc.chunks} chunks</p>
                     </div>
                   </div>
                 ))}
